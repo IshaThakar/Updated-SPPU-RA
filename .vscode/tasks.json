@@ -1,0 +1,59 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "inspect_fe_pdfs",
+			"type": "shell",
+			"command": "python tmp/inspect_pdfs.py",
+			"problemMatcher": []
+		},
+		{
+			"label": "run_inspect_parser",
+			"type": "shell",
+			"command": "python tmp/inspect_parser.py",
+			"problemMatcher": []
+		},
+		{
+			"label": "run_inspect_parser",
+			"type": "shell",
+			"command": "python -c \"import sys; sys.path.insert(0, '.'); from parser_engine import ResultParsingEngine; from pathlib import Path; root=Path('pdfs');\nfor name in ['FE 2024 pattern.pdf','FE 2025.pdf']:\n    path=root/name; print('===', name, '==='); result=ResultParsingEngine().parse(path); print('students', len(result.students)); print('schema semesters', list(result.schema.keys())[:3]); print('first student', result.students[0].seat_no, result.students[0].prn, result.students[0].name); print('semesters', list(result.students[0].semesters.keys())[:2]); print()\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "run_parser",
+			"type": "shell",
+			"command": "python tmp/run_parser.py",
+			"problemMatcher": []
+		},
+		{
+			"label": "inspect_fields",
+			"type": "shell",
+			"command": "python tmp/inspect_fields.py",
+			"problemMatcher": []
+		},
+		{
+			"label": "inspect_layout_words",
+			"type": "shell",
+			"command": "python -c \"import sys; sys.path.insert(0, '.'); import pdfplumber, os; from pathlib import Path; from parsers.ledger_parser import CollegeLedgerParser; root=Path('pdfs');\nfor name in ['FE 2024 pattern.pdf','FE 2025.pdf']:\n    print('===', name, '===');\n    with pdfplumber.open(root/name) as pdf:\n        for page in pdf.pages[1:2]:\n            words = page.extract_words(x_tolerance=1, y_tolerance=2)\n            for w in words[:80]:\n                if any(k in w['text'].upper() for k in ['CCE','ESE','TW','TOT','CRD','ERN','GRD','PRN','SEAT','NAME','SEMESTER','AEC-101','BSC','CCC']):\n                    print(w)\n            print('--- rows sample ---')\n            for w in words:\n                if w['text'] in ['AEC-101','BSC-101-BES','P','*','023','031','2','O','10','20','F','FFF']:\n                    print(w)\n            break\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "run_fe_tests",
+			"type": "shell",
+			"command": "python -m unittest discover -s tests -p \"test_*.py\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "run_fe_tests",
+			"type": "shell",
+			"command": "python -m unittest discover -s tests -p \"test_*.py\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "run_full_pipeline",
+			"type": "shell",
+			"command": "python main.py",
+			"problemMatcher": []
+		}
+	]
+}
