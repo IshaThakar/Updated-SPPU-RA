@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Universal SPPU Result Parsing Engine
 
 Run every PDF placed in `pdfs/`:
@@ -10,3 +11,6 @@ python main.py
 For each PDF, the program detects its layout from content, scans the entire document to discover the schema, prints that structure, then writes a same-named workbook in `output/`.
 
 Layout-specific parsing is isolated in `parsers/`; the shared model, schema validation, and Excel writer do not depend on PDF layout. Add a future layout by implementing `BaseResultParser` and registering its content signature in `parser_factory.py`.
+=======
+# Updated-SPPU-RA
+>>>>>>> b10601862307d2ea1b93a027bd9645849579bf09
