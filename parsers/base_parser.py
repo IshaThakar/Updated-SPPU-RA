@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from models import ParsedResult, Schema, StudentRecord
-from utils import merge_schema
+from utils import PdfLine, merge_schema, read_pdf_lines
 
 
 class BaseResultParser(ABC):
@@ -14,10 +14,19 @@ class BaseResultParser(ABC):
 
     def parse(self, pdf_path: Path) -> ParsedResult:
         # This order is contractual: complete schema discovery precedes students.
-        discovered_schema = self.discover_schema(pdf_path)
-        students = self.parse_students(pdf_path)
-        self.validate(students)
-        return ParsedResult(self.pdf_type, pdf_path.name, students, merge_schema(discovered_schema, students))
+        self._document_lines = read_pdf_lines(pdf_path)
+        try:
+            discovered_schema = self.discover_schema(pdf_path)
+            students = self.parse_students(pdf_path)
+            self.validate(students)
+            return ParsedResult(self.pdf_type, pdf_path.name, students, merge_schema(discovered_schema, students))
+        finally:
+            self._document_lines = None
+
+    def document_lines(self, pdf_path: Path) -> list[PdfLine]:
+        """Return the cached extraction for the current parse operation."""
+        lines = getattr(self, "_document_lines", None)
+        return lines if lines is not None else read_pdf_lines(pdf_path)
 
     @abstractmethod
     def discover_schema(self, pdf_path: Path) -> Schema:

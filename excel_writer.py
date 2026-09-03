@@ -29,13 +29,20 @@ class ExcelWriter:
         columns = self._remove_empty_subject_columns(worksheet, columns)
         self._merge_headers(worksheet, columns)
         self._format(worksheet)
+        if result.requires_review:
+            self._write_review_sheet(workbook, result)
+        if result.raw_text:
+            self._write_source_text(workbook, result)
         workbook.save(output_path)
         return dataframe
 
     @staticmethod
     def dataframe(result: ParsedResult) -> pd.DataFrame:
         # Defensive final filter: never export fields that are blank for all students.
-        active_schema = result.schema
+        # Do this before building the dataframe.  Otherwise an assessment
+        # field that is dashes for every student (for example CCE in some
+        # 2024 ledgers) still reaches Excel and can look like a broken column.
+        active_schema = ExcelWriter._filtered_schema(result)
         summary_fields = list(dict.fromkeys(field for student in result.students for field in student.summary))
         columns = [
             ("Student Information", "", "Seat Number"),
@@ -133,3 +140,56 @@ class ExcelWriter:
         for column in range(1, worksheet.max_column + 1):
             values = (str(worksheet.cell(row, column).value or "") for row in range(1, worksheet.max_row + 1))
             worksheet.column_dimensions[get_column_letter(column)].width = min(max(map(len, values)) + 2, 34)
+
+    @staticmethod
+    def _write_source_text(workbook: Workbook, result: ParsedResult) -> None:
+        """Add a compact, searchable source sheet for text-fallback outputs."""
+        worksheet = workbook.create_sheet("Source Text")
+        worksheet.append(["Line", "Extracted PDF Text"])
+        for number, text in enumerate((line for line in result.raw_text.splitlines() if line.strip()), start=1):
+            worksheet.append([number, text])
+        fill = PatternFill("solid", fgColor="1F4E78")
+        font = Font(bold=True, color="FFFFFF")
+        border = Border(*(Side(style="thin", color="B7C9D6") for _ in range(4)))
+        for cell in worksheet[1]:
+            cell.fill = fill
+            cell.font = font
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        worksheet.freeze_panes = "A2"
+        worksheet.auto_filter.ref = worksheet.dimensions
+        worksheet.column_dimensions["A"].width = 10
+        worksheet.column_dimensions["B"].width = 110
+        for row in worksheet.iter_rows(min_row=2, min_col=1, max_col=2):
+            for cell in row:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    @staticmethod
+    def _write_review_sheet(workbook: Workbook, result: ParsedResult) -> None:
+        """Make an uncertain extraction conspicuous instead of silently usable."""
+        worksheet = workbook.create_sheet("Review Required")
+        worksheet.append(["Extraction Status", "REVIEW REQUIRED"])
+        worksheet.append(["PDF", result.source_name])
+        worksheet.append(["Parser", result.pdf_type])
+        worksheet.append([])
+        worksheet.append(["Reason"])
+        for note in result.review_notes:
+            worksheet.append([note])
+
+        fill = PatternFill("solid", fgColor="9C0006")
+        font = Font(bold=True, color="FFFFFF")
+        border = Border(*(Side(style="thin", color="B7C9D6") for _ in range(4)))
+        for cell in worksheet[1]:
+            cell.fill = fill
+            cell.font = font
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        worksheet["A5"].fill = fill
+        worksheet["A5"].font = font
+        worksheet["A5"].border = border
+        worksheet.freeze_panes = "A6"
+        worksheet.column_dimensions["A"].width = 115
+        worksheet.column_dimensions["B"].width = 34
+        for row in worksheet.iter_rows(min_row=2):
+            for cell in row:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)

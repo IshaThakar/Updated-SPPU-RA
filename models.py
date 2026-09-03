@@ -38,3 +38,11 @@ class ParsedResult:
     source_name: str
     students: list[StudentRecord]
     schema: Schema
+    # Populated only by the text fallback.  The normal result sheet remains
+    # compact, while unfamiliar layouts retain a lossless source-text sheet.
+    raw_text: str = ""
+    # A workbook may be useful without being safe to present as a verified
+    # marksheet.  Unknown layouts and suspicious values are surfaced here so
+    # callers can label the output rather than silently exporting bad data.
+    requires_review: bool = False
+    review_notes: list[str] = field(default_factory=list)

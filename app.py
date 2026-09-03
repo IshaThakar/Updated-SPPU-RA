@@ -3,6 +3,7 @@ import tempfile
 import streamlit as st
 from excel_writer import ExcelWriter
 from parser_engine import ResultParsingEngine
+from result_validator import review_summary
 from utils import render_structure
 
 st.set_page_config(page_title="SPPU Result Analyzer", page_icon="??", layout="wide")
@@ -20,10 +21,14 @@ if uploads:
             try:
                 result = engine.parse(source)
                 st.subheader(upload.name)
-                st.code(render_structure(result), language="text")
-                output = temp / f"{source.stem} - credit-summary-only.xlsx"
+                st.code(f"{render_structure(result)}\n{review_summary(result)}", language="text")
+                suffix = " - REVIEW REQUIRED" if result.requires_review else ""
+                output = temp / f"{source.stem}{suffix}.xlsx"
                 dataframe = writer.write(result, output)
-                st.success(f"{len(result.students)} students, {dataframe.shape[1]} columns")
+                if result.requires_review:
+                    st.warning("This file needs review. Its workbook includes a Review Required sheet and preserved Source Text.")
+                else:
+                    st.success(f"Verified: {len(result.students)} students, {dataframe.shape[1]} columns")
                 st.download_button("Download Excel", output.read_bytes(), output.name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key=upload.name)
             except Exception as error:
                 st.error(f"{upload.name}: {error}")

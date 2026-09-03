@@ -9,7 +9,7 @@ import re
 
 from models import Schema, StudentRecord, SubjectRecord
 from parsers.base_parser import BaseResultParser
-from utils import iter_pdf_lines, line_text
+from utils import clean_result_value, line_text
 
 
 SUBJECT_CODE = re.compile(r"^\d{6}[A-Z]?$", re.IGNORECASE)
@@ -40,7 +40,7 @@ class BeStudentResultParser(BaseResultParser):
         schema: Schema = OrderedDict()
         semester: str | None = None
         layout: TableLayout | None = None
-        for _, words in iter_pdf_lines(pdf_path):
+        for _, words in self.document_lines(pdf_path):
             text = line_text(words)
             layout = self._layout_from_header(words) or layout
             match = SEMESTER.search(text)
@@ -63,7 +63,7 @@ class BeStudentResultParser(BaseResultParser):
         current: StudentRecord | None = None
         semester: str | None = None
         layout: TableLayout | None = None
-        for _, words in iter_pdf_lines(pdf_path):
+        for _, words in self.document_lines(pdf_path):
             text = line_text(words)
             if SEAT.search(text) and "NAME" in text.upper() and "PRN" in text.upper():
                 if current:
@@ -131,6 +131,8 @@ class BeStudentResultParser(BaseResultParser):
             if center < layout.first_value_boundary:
                 name_words.append(word["text"])
             elif word["text"] and set(word["text"]) != {"-"}:
-                fields[layout.field_for_x(center)] = word["text"]
+                value = clean_result_value(word["text"])
+                if value:
+                    fields[layout.field_for_x(center)] = value
         name = " ".join(name_words)
         return SubjectRecord(words[index]["text"].upper(), name, fields) if name else None

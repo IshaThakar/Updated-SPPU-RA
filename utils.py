@@ -4,15 +4,29 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TypeAlias
+import re
 
 import pdfplumber
 
 from models import ParsedResult, Schema, StudentRecord
 
 
-def iter_pdf_lines(pdf_path: Path) -> Iterable[tuple[int, list[dict]]]:
-    """Yield words grouped into visual lines, preserving their x coordinates."""
+FOOTNOTE_SUFFIX = re.compile(r"(?<=\d)[#$&]+(?=(?:/|$))")
+
+
+PdfLine: TypeAlias = tuple[int, list[dict]]
+
+
+def read_pdf_lines(pdf_path: Path) -> list[PdfLine]:
+    """Extract a PDF once into visual reading-order lines.
+
+    Every result parser needs a schema pass and a student pass.  Keeping one
+    in-memory representation avoids re-opening large college ledgers (some of
+    which contain hundreds of pages) and keeps both passes aligned to exactly
+    the same extracted words.
+    """
+    lines: list[PdfLine] = []
     with pdfplumber.open(pdf_path) as pdf:
         for page_number, page in enumerate(pdf.pages, start=1):
             buckets: list[tuple[float, list[dict]]] = []
@@ -24,7 +38,13 @@ def iter_pdf_lines(pdf_path: Path) -> Iterable[tuple[int, list[dict]]]:
                 else:
                     buckets.append((word["top"], [word]))
             for _, bucket in sorted(buckets, key=lambda item: item[0]):
-                yield page_number, sorted(bucket, key=lambda word: word["x0"])
+                lines.append((page_number, sorted(bucket, key=lambda word: word["x0"])))
+    return lines
+
+
+def iter_pdf_lines(pdf_path: Path) -> Iterable[PdfLine]:
+    """Yield words grouped into visual lines, preserving their x coordinates."""
+    yield from read_pdf_lines(pdf_path)
 
 
 def line_text(words: list[dict]) -> str:
@@ -34,6 +54,17 @@ def line_text(words: list[dict]) -> str:
 def has_data(value: str) -> bool:
     """Return True when a PDF cell has a value other than dashes/whitespace."""
     return bool(value and any(part.strip() and set(part.strip()) != {"-"} for part in value.split(" | ")))
+
+
+def clean_result_value(value: str) -> str:
+    """Remove SPPU footnote suffixes from an otherwise numeric result token.
+
+    Examples: ``10$/025`` becomes ``10/025`` and ``2$`` becomes ``2``.
+    The source uses these suffixes as observation references, not as part of a
+    mark or ordinal.  Restricting removal to symbols immediately after a digit
+    avoids changing normal grade/status values.
+    """
+    return FOOTNOTE_SUFFIX.sub("", value.lstrip("*").replace('"', ""))
 
 
 def merge_schema(discovered: Schema, students: list[StudentRecord]) -> Schema:

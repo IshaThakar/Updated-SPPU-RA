@@ -4,6 +4,7 @@ from pathlib import Path
 
 from excel_writer import ExcelWriter
 from parser_engine import ResultParsingEngine
+from result_validator import review_summary
 from utils import render_structure
 
 
@@ -22,7 +23,9 @@ def main() -> None:
         result = engine.parse(pdf_path)
         # Validation is intentionally printed before the Excel write.
         print(render_structure(result))
-        output = OUTPUT_DIRECTORY / f"{pdf_path.stem}.xlsx"
+        print(review_summary(result))
+        suffix = " - REVIEW REQUIRED" if result.requires_review else ""
+        output = OUTPUT_DIRECTORY / f"{pdf_path.stem}{suffix}.xlsx"
         dataframe = writer.write(result, output)
         print(f"Created: {output.name} ({dataframe.shape[0]} students x {dataframe.shape[1]} columns)\n")
 
